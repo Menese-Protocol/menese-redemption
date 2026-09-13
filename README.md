@@ -157,3 +157,13 @@ directory** is byte-identical, which distinguishes reproducible from merely repe
   blackholed, so it must be kept topped up. Open as R-6.
 - **The canister is not blackholed and is not immutable.** The table cannot be changed except
   by a public SNS upgrade vote. That is a governance guarantee, not a cryptographic one.
+
+## Contributing
+
+This repository was published as a single commit, by design: the product was built in a
+private tree through iteration, test batteries, oracle comparison and review, and the public
+repository is the clean cut of the result, without the lab work behind it. From this release
+onward, work continues here in the open. Open an issue for a defect or a question, with the
+file and line; open a pull request against `main` with the battery green. Contributions are
+attributed to the team.
+
