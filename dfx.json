@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "canisters": {
+    "mock_ledger": {
+      "type": "motoko",
+      "main": "test/MockLedger.mo"
+    },
+    "mock_gov": {
+      "type": "motoko",
+      "main": "test/MockGov.mo"
+    },
+    "redemption": {
+      "type": "motoko",
+      "main": "src/Redemption.mo"
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "mops sources"
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8973",
+      "type": "ephemeral"
+    }
+  }
+}

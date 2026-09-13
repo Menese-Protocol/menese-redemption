@@ -1,0 +1,11 @@
+# Dependency pin for the redemption canister.
+#
+# These two versions are inputs to the produced module hash, and not only through the
+# code they contribute: moc derives the numeric type-disambiguation suffixes in the
+# `motoko:stable-types` custom section from the ABSOLUTE PATHS of the files defining each
+# stable type, which include `.mops/<pkg>@<version>/`. Changing a version, or resolving
+# the same version at a different path, changes the module hash without changing a line
+# of source. See docker/Dockerfile and BUILD-VERIFY.md.
+[dependencies]
+core = "2.4.0"
+sha2 = "0.1.9"

@@ -1,0 +1,16 @@
+# dfx build + replica state
+.dfx/
+canister_ids.json
+.vessel/
+.mops/
+
+# build output: reproducible from source, md5 recorded in build/BUILD.md
+build/*.wasm
+build/*.json
+build/*.did
+build/*.most
+
+# never commit a holder table; the snapshot carries principals and balances
+snapshot-*.json
+*-snapshot.json
+entries*.did
