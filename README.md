@@ -165,5 +165,5 @@ private tree through iteration, test batteries, oracle comparison and review, an
 repository is the clean cut of the result, without the lab work behind it. From this release
 onward, work continues here in the open. Open an issue for a defect or a question, with the
 file and line; open a pull request against `main` with the battery green. Contributions are
-attributed to the team.
+attributed to Menese Protocol.
 
