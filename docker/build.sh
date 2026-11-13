@@ -18,7 +18,7 @@
 # gets wrong is the part that matters here.
 #
 # The disambiguator follows the path of the file DEFINING each stable type, exactly as moc
-# is given it. Every stable type in this canister (Entry, Payout, Progress, Source,
+# is given it. Every stable type in this canister (Entry, Source, BasketConfig, Progress,
 # Status) is defined in `src/Types.mo`, and none comes from a package. Measured:
 #
 #   relative source + relative packages -> 8196485adbba80dade277961d2436a32
@@ -36,7 +36,7 @@
 set -euo pipefail
 
 CANONICAL=/menese-redemption
-EXPECTED_MD5=8196485adbba80dade277961d2436a32
+EXPECTED_MD5=aefb507c82caa69d4c9bddf37b7b14a6
 
 if [ "$(pwd -P)" != "$CANONICAL" ]; then
   echo "note: building at $(pwd -P), not the canonical $CANONICAL." >&2

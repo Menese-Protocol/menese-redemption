@@ -9,6 +9,7 @@ build/*.wasm
 build/*.json
 build/*.did
 build/*.most
+build/test/
 
 # never commit a holder table; the snapshot carries principals and balances
 snapshot-*.json

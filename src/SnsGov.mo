@@ -1,45 +1,16 @@
 /// SnsGov.mo: the subset of the SNS governance interface this canister uses.
 ///
-/// Transcribed from rs/sns/governance/canister/governance.did at dfinity/ic master.
-/// Only the four commands the payout path needs, plus get_neuron for idempotency.
+/// Transcribed from the candid:service of the SNS governance module SNS-W deploys
+/// (git 3e645182, the Nov-2026 mainnet version). Only the commands the delivery path needs
+/// (Split, AddNeuronPermissions, RemoveNeuronPermissions), plus get_neuron, get_mode and the
+/// nervous system parameters it checks itself against. Nothing here can move MPV out of a
+/// neuron: the canister cannot express a Disburse.
 /// Field names and variant tags must match the .did exactly or the call decodes to garbage.
 
 module {
 
   public type NeuronId = { id : Blob };
 
-  public type MemoAndController = {
-    controller : ?Principal;   // may name a principal OTHER than the caller; verified at
-                               // governance.rs:4235, there is no controller == caller check
-    memo : Nat64;
-  };
-
-  public type By = {
-    #MemoAndController : MemoAndController;
-    #NeuronId : {};
-  };
-
-  public type ClaimOrRefresh = { by : ?By };
-
-  /// NOTE the field is *additional* seconds, not an absolute delay. A retry therefore
-  /// ADDS again, which is why the payout path reads the neuron first and only ever sends
-  /// the difference. nat32 caps this at ~136 years, comfortably above any delay issued here.
-  public type IncreaseDissolveDelay = { additional_dissolve_delay_seconds : Nat32 };
-
-  public type Operation = {
-    #ChangeAutoStakeMaturity : { requested_setting_for_auto_stake_maturity : Bool };
-    #StopDissolving : {};
-    #StartDissolving : {};
-    #IncreaseDissolveDelay : IncreaseDissolveDelay;
-    #SetDissolveTimestamp : { dissolve_timestamp_seconds : Nat64 };
-  };
-
-  public type Configure = { operation : ?Operation };
-
-  /// Permission ids, from NeuronPermissionType in the SNS governance proto.
-  /// The full set is what `neuron_claimer_permissions` and `neuron_grantable_permissions`
-  /// are both initialised to (rs/sns/init/src/lib.rs:813-814), so all of these are
-  /// grantable to the holder and removable from this canister.
   public type NeuronPermissionList = { permissions : [Int32] };
 
   public type AddNeuronPermissions = {
@@ -52,9 +23,15 @@ module {
     principal_id : ?Principal;
   };
 
+  /// Split `amount_e8s` off the neuron into a new one whose id is the staking subaccount of
+  /// (caller, memo). The child holds amount - fee, inherits the dissolve state, age and
+  /// permissions; the parent must keep at least the minimum stake (governance.rs
+  /// split_neuron). A memo already used by the caller is refused, so a split can never be
+  /// made twice under the same memo.
+  public type Split = { memo : Nat64; amount_e8s : Nat64 };
+
   public type Command = {
-    #ClaimOrRefresh : ClaimOrRefresh;
-    #Configure : Configure;
+    #Split : Split;
     #AddNeuronPermissions : AddNeuronPermissions;
     #RemoveNeuronPermissions : RemoveNeuronPermissions;
   };
@@ -63,12 +40,9 @@ module {
 
   public type GovernanceError = { error_type : Int32; error_message : Text };
 
-  public type ClaimOrRefreshResponse = { refreshed_neuron_id : ?NeuronId };
-
   public type CommandResponse = {
     #Error : GovernanceError;
-    #ClaimOrRefresh : ClaimOrRefreshResponse;
-    #Configure : {};
+    #Split : { created_neuron_id : ?NeuronId };
     #AddNeuronPermission : {};
     #RemoveNeuronPermission : {};
   };
@@ -89,6 +63,9 @@ module {
   public type Neuron = {
     id : ?NeuronId;
     cached_neuron_stake_e8s : Nat64;
+    neuron_fees_e8s : Nat64;
+    vesting_period_seconds : ?Nat64;
+    created_timestamp_seconds : Nat64;
     dissolve_state : ?DissolveState;
     /// Read so the strip step can remove exactly what this canister actually holds,
     /// rather than a list it assumed it was given.
@@ -102,6 +79,10 @@ module {
     neuron_minimum_dissolve_delay_to_vote_seconds : ?Nat64;
     neuron_minimum_stake_e8s : ?Nat64;
     transaction_fee_e8s : ?Nat64;
+    /// Governance clamps a neuron's delay at this value. Read so that no basket delay is
+    /// issued that governance would clamp, which would leave the read-then-add step
+    /// unable ever to reach its target.
+    max_dissolve_delay_seconds : ?Nat64;
     /// The permissions this SNS will let a claimer hand on. Read live and used verbatim;
     /// see the note on the removal of ALL_PERMISSIONS below.
     neuron_grantable_permissions : ?NeuronPermissionList;
@@ -111,6 +92,9 @@ module {
     manage_neuron : shared ManageNeuron -> async ManageNeuronResponse;
     get_neuron : shared query { neuron_id : ?NeuronId } -> async GetNeuronResponse;
     get_nervous_system_parameters : shared query () -> async NervousSystemParameters;
+    /// 1 Normal, 2 PreInitializationSwap. Split is refused until Normal
+    /// (types.rs, manage_neuron_command_is_allowed_in_pre_initialization_swap_or_err).
+    get_mode : shared query {} -> async { mode : ?Int32 };
   };
 
   // No hardcoded permission list is defined here, by design.

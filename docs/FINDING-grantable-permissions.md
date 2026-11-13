@@ -1,5 +1,8 @@
 # F-1, neuron permission grant rejected by governance
 
+> Found on an earlier module and its mocks (`MockGov.mo`, `e2e.sh`), since replaced. The
+> remedy carries over: the current module reads the grantable permissions live on every tick.
+
 | | |
 |---|---|
 | Severity | Critical |

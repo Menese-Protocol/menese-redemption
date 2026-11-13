@@ -1,168 +1,83 @@
 # Verification against deployed SNS modules
 
-Module under test: `7dd8a3d10c70929d6fbcc55dd1284c80`, 780050 bytes: the artifact
-`build/redemption.wasm` holds and `verification/verify-build.sh` reproduces. Run 2026-09-09.
+Module under test: `build/redemption.wasm`, md5 `302cdaedb94bd4cdb163421928c8e71d`, sha256
+`d3c818b5e07d9945b63d6ea57a457338a0cd5f3acd72d07be0b3ac6833174b20`, 1,149,774 bytes, the
+module `verification/verify-build.sh` reproduces. Run 2026-11-13.
 
-**41 checks, 0 failures.**
+**42 checks, 0 failures, over two MENES worlds. Every holder in the table delivered as
+neurons, nothing paid out liquid, every genesis neuron handed over, zero SNS proposals.
+Neurons another principal claims in the holder canister's name change nothing.**
 
 ## Method
 
-An SNS is launched from `sns_init.yaml` by submitting a `CreateServiceNervousSystem`
-proposal to the **mainnet NNS Governance module**, adopting it, opening and filling the swap,
-and finalizing. `build/redemption.wasm` is then installed alongside it and the payout path is
-driven against the **mainnet SNS Governance module** and the **mainnet Rust ICRC-1 ledger**.
+Everything runs on PocketIC with the modules live on mainnet:
 
-No SNS rule is reimplemented; every result is read from the deployed canisters. The tokens
-paid out are tokens that SNS minted, obtained by disbursing a swap participant's basket
-neuron.
+1. **The MENES ledger** module is installed at its own id and its history is **replayed**
+   block by block, at each block's original index and time. The MENES sale canister's stake
+   records are installed at its id.
+2. **The SNS** is launched from `sns_init.yaml` by submitting a
+   `CreateServiceNervousSystem` proposal to the **mainnet NNS Governance module**, adopting
+   it, filling the swap and finalizing. The holder canister sits at its own id, listed among
+   the dapp canisters; the SNS creates its nine genesis neurons.
+3. **Nothing else is done to the holder canister.** It binds itself to the SNS, takes the
+   snapshot at the swap's close, builds the table, and delivers every share, against the
+   **mainnet SNS Governance module** and the **mainnet SNS ledger**. Holders nominate their
+   destinations, and SNS root upgrades the canister at intervals during delivery.
+4. Every neuron is read back from governance; the books are added up from governance and the
+   ledger, not from the canister's own answers.
 
-The seventeen NNS and SNS modules are each verified twice on fetch: sha256 against the
-pinned manifest, and against the module hash the IC itself reports. The provenance record is
-kept with the SNS launch configuration, outside this repository.
+No SNS rule is reimplemented; every result is read from the deployed canisters. The NNS and
+SNS modules are each verified twice when fetched: sha256 against the pinned manifest, and
+against the module hash the IC itself reports. The registry module is the one exception: the
+current one refuses the test subnet PocketIC creates, so the previous mainnet registry
+module is used. The registry takes no part in any check.
 
-## Scope
+## The worlds
 
-Mock-based suites verify behaviour against a model of the counterparty; a divergence between
-that model and the deployed counterparty is outside what they can establish. This run exists
-to close that gap for the payout path. Defect F-1
-(`docs/FINDING-grantable-permissions.md`) is an instance of exactly that class.
+| | MENES blocks | stake records | holders | in the table | baskets of nine | smaller baskets | left out | neurons |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| the MENES ledger's real history | 8,934 | 358 | 151 | 117 | 112 | 5 | 34 | 1,021 |
+| synthetic (scale) | 1,998 | 776 | 2,000 | 709 | 555 | 154 | 1,291 | 5,476 |
 
-## The table under test
+The real history's five smaller baskets hold 1, 1, 1, 4 and 6 neurons. The holders left out
+on it held 605,856,129 e8s of MENES between them (6.06 MENES); their shares went to the others.
+Two rounds of the redistribution settle both worlds, and no basket of nine is moved to eight.
 
-Five entries. Entry 4 is deliberately positioned behind both neuron entries.
-
-| # | holder | amount | payout | expected |
-|---|---|---:|---|---|
-| 0 | A | 5 MENES | Liquid | paid |
-| 1 | B | 0.00005 MENES | Liquid | `Failed`, at or below the fee |
-| 2 | C | 20 MENES | Neuron, 26 weeks | neuron to C's **nominated** principal |
-| 3 | D | 10 MENES | Neuron, 18 months | neuron to D's **nominated** principal, driven only by the timer |
-| 4 | E | 2 MENES | Liquid | paid even while entries 2 and 3 are stalled |
+The table each world must produce is computed beforehand by the off-chain table builder,
+independently of the canister. This document reports aggregates only.
 
 ## Results
 
-### Our constants against the live SNS
+The same checks run on both worlds; the real-history ids start with `R`, the synthetic ones
+with `S` (`RL1` and `SL1` are the same check).
 
-| | | |
-|---|---|---|
-| `S1` | live voting floor = compiled-in `DISSOLVE_FLOOR_SECONDS` | `15724800` |
-| `S2` | live minimum neuron stake = compiled-in `MIN_NEURON_STAKE_E8S` | `1000000000` |
-| `S3` | live transfer fee = compiled-in `FEE_E8S` | `10000` |
+| check | what | real history | synthetic |
+|---|---|---|---|
+| L1 | every block replayed at its original index on the real ledger module | 8,934 blocks | 1,998 blocks |
+| L2 | supply after the replay = initial balances less every fee | equal | equal |
+| G0 | the holder canister sits at its own id | yes | yes |
+| G1 | nine genesis neurons controlled by the holder canister, stakes and delays as in `sns_init.yaml` | yes | yes |
+| G2 | unbound while the swap runs (NNS Root still a controller) | `Unbound` | `Unbound` |
+| S1 | bound after the swap to this SNS's root, governance and ledger, with no admin | yes | yes |
+| S2 | the snapshot completes | `Delivering` | `Delivering` |
+| S3 | the on-chain table hash equals the off-chain builder's for the same cut | `e36e84f1…8c60b7c` | `d3c0975b…c84c979` |
+| S4 | every row equals the builder's (owner, held, staked, gross, first rung, parts) | 117 rows, 0 differ | 709 rows, 0 differ |
+| S5 | the list of holders left out equals the builder's; the report's counts equal the builder's | 34 of 34 | 1,291 of 1,291 |
+| P1 | a swap participant disburses its delay-0 neuron and, on real governance, claims a neuron for the holder canister at every id the public memo rule (entry + 1) × 65,536 + k gives the first three baskets | 27 of 27 | 27 of 27 |
+| D1 | every holder in the table nominates a destination (canister owners by their own call) | 117 | 709 |
+| D2 | every share delivered and every genesis neuron handed over, through upgrades by SNS root | 499 rounds, 10 upgrades | 2,633 rounds, 53 upgrades |
+| N1 | every neuron: right rung, the nominated owner holds the live grantable permissions, the holder canister none; stake and delay exact; its id the staking subaccount of (holder, its memo), the memo k for a genesis neuron and a secret memo otherwise, never the other principal's | 1,021 of 1,021 | 5,476 of 5,476 |
+| N2 | no holder, destination or holder left out holds liquid MPV | 302 accounts, 0 hold MPV | 4,000 accounts, 0 hold MPV |
+| B1 | delivered stake + split fees = 15,000,000 MPV | 1,500,000,000,000,000 e8s | 1,500,000,000,000,000 e8s |
+| B2 | the canister's count of splits | 1,012 | 5,467 |
+| B3 | `settlement()` | settled | settled |
+| B4 | neurons the holder canister controls at the end, besides the other principal's | 0 | 0 |
+| P2 | the other principal's neurons untouched (stake, no delay, only the holder canister as claimer), none a basket's; neurons the canister met at a part's id | 27 of 27; 0 | 27 of 27; 0 |
+| B5 | SNS proposals made from genesis to the last delivery | 0 | 0 |
 
-Live `neuron_grantable_permissions` = `[0,1,2,3,4,5,6,7,8,9,10]`, **eleven**, not twelve.
+The splits are the neurons less nine: the last share on each genesis neuron takes the
+neuron itself.
 
-### The canister
+## Running it
 
-| | | |
-|---|---|---|
-| `C1` | `verifyParameters()` against real governance | `ok("floor ok: configured 15724800s >= live 15724800s")` |
-| `C2` | a neuron entry does nothing before its owner nominates | `ok("awaiting a destination from the owner")` |
-| `C3` | a principal with no neuron entry cannot nominate | `err("no unpaid neuron entry belongs to you")` |
-| `C4` | each owner nominates their own destination | `ok(1)`, `ok(1)` |
-
-`C1` settles a question a mock could not: the `.did` declares
-`get_nervous_system_parameters : (null) -> ...`, one argument, while the Motoko import
-declares none. The deployed canister accepts the call.
-
-### Audit R-3, against a genuinely rejecting ledger
-
-The SNS ledger canister is **stopped**, not a mock trained to trap.
-
-| | | |
-|---|---|---|
-| `C5a` | `process(0)` reports failure, does not trap | `err("transfer rejected: … is stopped")` |
-| `C5b` | entry 0 is **not** marked `Done` by the rejection | `Pending` |
-| `C5c` | the error is recorded, not lost | present |
-| `C5d` | `created_at_time` fixed on the first attempt | `1622376122000000233` |
-| `C6a` | after restart, entry 0 reaches `Done` | `Done` |
-| `C6b` | holder A credited exactly the entry amount, once | `500000000` |
-
-This is the critical audit finding reproduced end to end on the real ledger: before the fix,
-a rejecting ledger marked the entry `Done` while paying nobody, irreversibly.
-
-### The neuron path
-
-`entry 2 log: funded → claimed → delay set → granted to holder → done`
-
-| | entry 2 | entry 3 |
-|---|---|---|
-| status | `Done` | `Done`, **driven only by the canister's own 15-second timer** |
-| neuron id = IC staking-subaccount formula | `a07c6623…` ✓ | `7e71cd6d…` ✓ |
-| dissolve delay off real governance | `15724800` | `47260800` |
-| stake off real governance | `2000000000` | `1000000000` |
-| nominated destination's permissions | `[0…10]` | `[0…10]` |
-| snapshot owner's permissions | none | none |
-| redemption canister's permissions | none | none |
-
-The dissolve delays being exact to the second is what proves `IncreaseDissolveDelay` is
-additive on the real canister and that the canister sends the difference rather than the
-absolute value. The neuron id matching a reimplementation of the IC's own formula, written
-in the harness from `rs/nervous_system/common/src/ledger.rs`, not from `src/Logic.mo`, is a
-third independent check of the subaccount derivation.
-
-The last two rows are the property the whole design rests on: the holder controls the neuron
-outright, the principal from the snapshot does not, and the canister that created it has
-removed itself.
-
-### Driver fairness
-
-SNS Governance is stopped, so both neuron entries fail at the claim step on every attempt.
-Entry 4 sits behind them and needs only the ledger.
-
-| | | |
-|---|---|---|
-| `C17a` | entries 2 and 3 are stalled while governance is down | `Funded` / `Funded` |
-| `C17b` | entry 4, behind both, still reaches `Done` | `Done` |
-| `C17c` | entry 4 was credited its full amount | `200000000` |
-| `C17d` | `settlement()` names the stalled entry | `entry 2 has failed 11 consecutive attempt(s)` |
-
-Under a driver that restarts its scan at index 0 on every pass, entry 4 is never attempted.
-
-### The books
-
-| | | |
-|---|---|---|
-| `C7` | dust below the fee is `Failed`, not silently skipped | `"amount 5000 is at or below the ledger fee; unpayable"` |
-| `C15a` | `reconcile()` holds | reserve `15_000` = expected `15_000` |
-| `C15b` | `reconcile()`'s reserve balance is the ledger's own number | `15000` |
-| `C16a` | `settlement()` settled | `"every entry resolved, books balance; 1 written off as unpayable"` |
-| `C16b` | writes off exactly the one dust entry | `1` |
-
-### The ledger properties the retry safety rests on
-
-Exercised directly on the real Rust ICRC-1 ledger.
-
-| | | |
-|---|---|---|
-| `L1a` | the first transfer is accepted | block `419` |
-| `L1b` | a byte-identical replay returns `Duplicate` | `Duplicate { duplicate_of: 419 }` |
-| `L1c` | the target was credited exactly once | `1000000` |
-| `L2` | a `created_at_time` outside the window returns `TooOld` | `TooOld` |
-
-These are ledger-level, not canister-level. PocketIC cannot drop a reply, so the case of a
-transfer that lands with its reply lost cannot be induced end to end. What is established is that
-the ledger really does behave the way the canister assumes when it fixes `created_at_time`
-on the first attempt and reuses it on every retry. The canister's handling of both answers
-is covered by `test/repro-reject.sh`.
-
-## What this run does not establish
-
-- **The table.** The snapshot pipeline produces it, and it lives outside this repository and
-  has never been audited. Every result above is conditional on the table being right, and no
-  method on this canister can correct it once installed.
-- **Scale.** Four entries, not a full table. Nothing here measures cycles or instruction counts over
-  the real table.
-- **An upgrade.** Adding `txTime` to `Progress` after install is a compatibility question,
-  and `moc --stable-compatible` is the gate for it. This harness installs fresh.
-- **R-6 and R-7**, which remain decisions for the maintainers, not code.
-
-## Reproducing
-
-```sh
-cp verification/pocketic/menese_redemption_sim.rs \
-   <ic-checkout>/rs/nervous_system/integration_tests/tests/
-verification/pocketic/run_redemption_sim.sh build/redemption.wasm
-```
-
-`verification/pocketic/README.md` explains the assets, the one source change needed in the
-`ic` checkout, and what each check is for.
+`verification/pocketic/README.md`.

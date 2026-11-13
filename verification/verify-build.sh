@@ -4,11 +4,12 @@
 #
 #   ./verification/verify-build.sh
 #
-# Four checks, in increasing strength:
+# Five steps, in increasing strength:
 #   1. the toolchain is the pinned one
-#   2. a build matches the md5 recorded in build/BUILD.md
-#   3. two consecutive builds are byte-identical
-#   4. a build from a DIFFERENT directory is byte-identical
+#   2. the dependencies resolve from the lockfile
+#   3. a build matches the md5 recorded in build/BUILD.md
+#   4. two consecutive builds are byte-identical
+#   5. a build from a DIFFERENT directory is byte-identical
 #
 # Check 5 is the substantive one. A build that reproduces only in its own directory is
 # repeatable, not reproducible: Motoko records path-derived type suffixes inside the module.
@@ -16,7 +17,7 @@ set -u
 cd "$(dirname "$0")/.."
 ROOT="$(pwd -P)"
 
-EXPECTED_MD5=7dd8a3d10c70929d6fbcc55dd1284c80
+EXPECTED_MD5=302cdaedb94bd4cdb163421928c8e71d
 EXPECTED_MOC="1.4.1"
 
 pass=0; fail=0
